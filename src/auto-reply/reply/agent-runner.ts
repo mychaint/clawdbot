@@ -39,6 +39,9 @@ import {
   freezeDiagnosticTraceContext,
 } from "../../infra/diagnostic-trace-context.js";
 import { measureDiagnosticsTimelineSpan } from "../../infra/diagnostics-timeline.js";
+import { formatUsageWindowSummary } from "../../infra/provider-usage.format.js";
+import { loadProviderUsageSummary } from "../../infra/provider-usage.load.js";
+import { resolveUsageProviderId, withTimeout } from "../../infra/provider-usage.shared.js";
 import { enqueueSystemEvent } from "../../infra/system-events.js";
 import { CommandLaneClearedError, GatewayDrainingError } from "../../process/command-queue.js";
 import { shouldPreserveUserFacingSessionStateForInputProvenance } from "../../sessions/input-provenance.js";
@@ -1320,6 +1323,27 @@ export async function runReplyAgent(params: {
   );
   const applyReplyToMode = createReplyToModeFilterForChannel(replyToMode, replyToChannel);
   const cfg = followupRun.run.config;
+  const preRunUsageMode = resolveResponseUsageMode(
+    activeSessionEntry?.responseUsage ??
+      (sessionKey ? activeSessionStore?.[sessionKey]?.responseUsage : undefined),
+  );
+  const copilotQuotaPromise: Promise<string | null> | null =
+    preRunUsageMode === "full" &&
+    resolveUsageProviderId(followupRun.run.provider) === "github-copilot"
+      ? loadProviderUsageSummary({
+          providers: ["github-copilot"],
+          agentDir: followupRun.run.agentDir,
+          workspaceDir: followupRun.run.workspaceDir,
+          config: cfg,
+        })
+          .then((summary) => {
+            const snapshot = summary.providers.find((p) => p.provider === "github-copilot");
+            return snapshot
+              ? (formatUsageWindowSummary(snapshot, { maxWindows: 1 }) ?? null)
+              : null;
+          })
+          .catch(() => null)
+      : null;
   const replyMediaContext = createReplyMediaContext({
     cfg,
     sessionKey,
@@ -2072,10 +2096,15 @@ export async function runReplyAgent(params: {
         allowPluginNormalization: false,
       });
       const showCost = responseUsageMode === "full" && costConfig !== undefined;
+      const providerQuotaSuffix =
+        copilotQuotaPromise !== null && providerUsed === "github-copilot"
+          ? await withTimeout(copilotQuotaPromise, 300, null)
+          : null;
       let formatted = formatResponseUsageLine({
         usage,
         showCost,
         costConfig,
+        ...(providerQuotaSuffix ? { providerQuotaSuffix } : {}),
       });
       if (formatted && responseUsageMode === "full" && sessionKey) {
         formatted = `${formatted} · session \`${sessionKey}\``;
