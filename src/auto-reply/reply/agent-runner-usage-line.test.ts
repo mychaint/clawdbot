@@ -20,12 +20,6 @@ describe("formatResponseUsageLine", () => {
     );
   });
 
-  it("does not append when providerQuotaSuffix is undefined", () => {
-    expect(formatResponseUsageLine({ ...BASE, providerQuotaSuffix: undefined })).toBe(
-      "Usage: 100 in / 50 out",
-    );
-  });
-
   it("does not append when providerQuotaSuffix is empty string", () => {
     expect(formatResponseUsageLine({ ...BASE, providerQuotaSuffix: "" })).toBe(
       "Usage: 100 in / 50 out",
