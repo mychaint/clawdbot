@@ -1327,6 +1327,7 @@ export async function runReplyAgent(params: {
     activeSessionEntry?.responseUsage ??
       (sessionKey ? activeSessionStore?.[sessionKey]?.responseUsage : undefined),
   );
+  // Pre-fetch before the model run so the await at footer time is nearly free.
   const copilotQuotaPromise: Promise<string | null> | null =
     preRunUsageMode === "full" &&
     resolveUsageProviderId(followupRun.run.provider) === "github-copilot"
@@ -2104,7 +2105,7 @@ export async function runReplyAgent(params: {
         usage,
         showCost,
         costConfig,
-        ...(providerQuotaSuffix ? { providerQuotaSuffix } : {}),
+        providerQuotaSuffix: providerQuotaSuffix ?? undefined,
       });
       if (formatted && responseUsageMode === "full" && sessionKey) {
         formatted = `${formatted} · session \`${sessionKey}\``;
