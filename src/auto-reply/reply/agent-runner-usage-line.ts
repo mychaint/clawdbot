@@ -18,6 +18,7 @@ export const formatResponseUsageLine = (params: {
   };
   showCost: boolean;
   costConfig?: ModelCostConfig;
+  providerQuotaSuffix?: string;
 }): string | null => {
   const usage = params.usage;
   if (!usage) {
@@ -51,7 +52,11 @@ export const formatResponseUsageLine = (params: {
       ? ` · cache ${formatTokenCount(cacheRead ?? 0)} cached / ${formatTokenCount(cacheWrite ?? 0)} new`
       : "";
   const suffix = costLabel ? ` · est ${costLabel}` : "";
-  return `Usage: ${inputLabel} in / ${outputLabel} out${cacheSuffix}${suffix}`;
+  const quotaSuffix =
+    typeof params.providerQuotaSuffix === "string" && params.providerQuotaSuffix !== ""
+      ? ` · ${params.providerQuotaSuffix}`
+      : "";
+  return `Usage: ${inputLabel} in / ${outputLabel} out${cacheSuffix}${suffix}${quotaSuffix}`;
 };
 
 /** Appends a usage line to the last text payload while preserving payload metadata. */
