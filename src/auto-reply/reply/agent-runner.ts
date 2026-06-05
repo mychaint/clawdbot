@@ -2098,7 +2098,9 @@ export async function runReplyAgent(params: {
       });
       const showCost = responseUsageMode === "full" && costConfig !== undefined;
       const providerQuotaSuffix =
-        copilotQuotaPromise !== null && providerUsed === "github-copilot"
+        responseUsageMode === "full" &&
+        copilotQuotaPromise !== null &&
+        resolveUsageProviderId(providerUsed) === "github-copilot"
           ? await withTimeout(copilotQuotaPromise, 300, null)
           : null;
       let formatted = formatResponseUsageLine({
