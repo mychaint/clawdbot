@@ -39,6 +39,8 @@ import type {
   TuiStateAccess,
 } from "./tui-types.js";
 
+const MODEL_LIST_LOADING_ACTIVITY_STATUS = "loading models";
+
 type CommandHandlerContext = {
   client: TuiBackend;
   chatLog: ChatLog;
@@ -164,8 +166,17 @@ export function createCommandHandlers(context: CommandHandlerContext) {
   };
 
   const openModelSelector = async () => {
+    const previousActivityStatus = state.activityStatus;
+    const shouldShowLoadingStatus = previousActivityStatus === "idle";
+    if (shouldShowLoadingStatus) {
+      setActivityStatus(MODEL_LIST_LOADING_ACTIVITY_STATUS);
+      tui.requestRender();
+    }
     try {
       const models = await client.listModels();
+      if (shouldShowLoadingStatus && state.activityStatus === MODEL_LIST_LOADING_ACTIVITY_STATUS) {
+        setActivityStatus(previousActivityStatus);
+      }
       if (models.length === 0) {
         chatLog.addSystem("no models available");
         tui.requestRender();
@@ -194,6 +205,9 @@ export function createCommandHandlers(context: CommandHandlerContext) {
         }
       });
     } catch (err) {
+      if (shouldShowLoadingStatus && state.activityStatus === MODEL_LIST_LOADING_ACTIVITY_STATUS) {
+        setActivityStatus(previousActivityStatus);
+      }
       chatLog.addSystem(`model list failed: ${String(err)}`);
       tui.requestRender();
     }

@@ -386,6 +386,7 @@ export function canSubmitTuiChatMessage(params: {
 }
 
 const TUI_BUSY_ACTIVITY_STATUSES = new Set([
+  "loading models",
   "sending",
   "waiting",
   "streaming",

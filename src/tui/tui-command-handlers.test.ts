@@ -5,6 +5,7 @@ import {
   TUI_RECENT_SESSIONS_ACTIVE_MINUTES,
   TUI_SESSION_PICKER_LIMIT,
 } from "./tui-session-list-policy.js";
+import { isTuiBusyActivityStatus } from "./tui.js";
 
 type LoadHistoryMock = ReturnType<typeof vi.fn> & (() => Promise<void>);
 type RunAuthFlow = NonNullable<Parameters<typeof createCommandHandlers>[0]["runAuthFlow"]>;
@@ -118,7 +119,6 @@ function createHarness(params?: {
   const refreshSessionInfo = params?.refreshSessionInfo ?? vi.fn().mockResolvedValue(undefined);
   const applySessionInfoFromPatch = params?.applySessionInfoFromPatch ?? vi.fn();
   const applySessionMutationResult = params?.applySessionMutationResult ?? vi.fn();
-  const setActivityStatus = params?.setActivityStatus ?? (vi.fn() as SetActivityStatusMock);
   const forgetLocalRunId = vi.fn();
   const openOverlay = vi.fn();
   const closeOverlay = vi.fn();
@@ -142,6 +142,11 @@ function createHarness(params?: {
     isConnected: params?.isConnected ?? true,
     sessionInfo: {},
   };
+  const setActivityStatus =
+    params?.setActivityStatus ??
+    (vi.fn((next: string) => {
+      state.activityStatus = next;
+    }) as SetActivityStatusMock);
 
   const { handleCommand, openSessionSelector } = createCommandHandlers({
     client: {
@@ -1147,5 +1152,68 @@ describe("tui command handlers", () => {
     expect(applySessionInfoFromPatch).toHaveBeenCalledWith({ model: "openrouter/auto" });
     expect(refreshSessionInfo).toHaveBeenCalledTimes(1);
     expect(closeOverlay).toHaveBeenCalledTimes(1);
+  });
+
+  it("shows loading feedback before /models listing resolves", async () => {
+    let resolveModels: (
+      value: Array<{ provider: string; id: string; name?: string }>,
+    ) => void = () => {
+      throw new Error("resolveModels not initialized");
+    };
+    const listModels = vi.fn(
+      () =>
+        new Promise<Array<{ provider: string; id: string; name?: string }>>((resolve) => {
+          resolveModels = resolve;
+        }),
+    );
+    const harness = createHarness({
+      listModels,
+      activityStatus: "idle",
+    });
+
+    const pending = harness.handleCommand("/models");
+    await Promise.resolve();
+
+    const busyCallIndex = harness.setActivityStatus.mock.calls.findIndex((call) =>
+      isTuiBusyActivityStatus(call[0]),
+    );
+    expect(busyCallIndex).toBeGreaterThanOrEqual(0);
+    const busyOrder = harness.setActivityStatus.mock.invocationCallOrder[busyCallIndex] ?? 0;
+    expect(harness.requestRender.mock.invocationCallOrder.some((order) => order > busyOrder)).toBe(
+      true,
+    );
+
+    resolveModels([]);
+    await pending;
+    expect(harness.state.activityStatus).toBe("idle");
+  });
+
+  it("does not replace streaming status while /models listing resolves", async () => {
+    let resolveModels: (
+      value: Array<{ provider: string; id: string; name?: string }>,
+    ) => void = () => {
+      throw new Error("resolveModels not initialized");
+    };
+    const listModels = vi.fn(
+      () =>
+        new Promise<Array<{ provider: string; id: string; name?: string }>>((resolve) => {
+          resolveModels = resolve;
+        }),
+    );
+    const harness = createHarness({
+      listModels,
+      activityStatus: "streaming",
+      activeChatRunId: "run-active",
+    });
+
+    const pending = harness.handleCommand("/models");
+    await Promise.resolve();
+
+    expect(harness.setActivityStatus).not.toHaveBeenCalledWith("loading models");
+    expect(harness.state.activityStatus).toBe("streaming");
+
+    resolveModels([{ provider: "openrouter", id: "openrouter/auto" }]);
+    await pending;
+    expect(harness.state.activityStatus).toBe("streaming");
   });
 });
