@@ -1,5 +1,5 @@
 // Defines shared TUI state, backend, and event types.
-import type { SessionGoal } from "../config/sessions/types.js";
+import type { SessionContextBudgetStatus, SessionGoal } from "../config/sessions/types.js";
 
 export type TuiOptions = {
   local?: boolean;
@@ -68,6 +68,7 @@ export type SessionInfo = {
   inputTokens?: number | null;
   outputTokens?: number | null;
   totalTokens?: number | null;
+  contextBudgetStatus?: SessionContextBudgetStatus | null;
   goal?: SessionGoal;
   responseUsage?: ResponseUsageMode;
   updatedAt?: number | null;

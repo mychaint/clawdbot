@@ -70,7 +70,7 @@ function thinkingLevelsEqual(
   });
 }
 
-function goalEquals(left: SessionInfo["goal"], right: SessionInfo["goal"]): boolean {
+function jsonEquals(left: unknown, right: unknown): boolean {
   return left === right || JSON.stringify(left ?? null) === JSON.stringify(right ?? null);
 }
 
@@ -88,9 +88,10 @@ function sessionInfoUiEquals(left: SessionInfo, right: SessionInfo): boolean {
     left.inputTokens === right.inputTokens &&
     left.outputTokens === right.outputTokens &&
     left.totalTokens === right.totalTokens &&
+    jsonEquals(left.contextBudgetStatus, right.contextBudgetStatus) &&
     left.responseUsage === right.responseUsage &&
     left.displayName === right.displayName &&
-    goalEquals(left.goal, right.goal)
+    jsonEquals(left.goal, right.goal)
   );
 }
 
@@ -254,6 +255,9 @@ export function createSessionActions(context: SessionActionContext) {
     if (entry?.totalTokens !== undefined) {
       next.totalTokens = entry.totalTokens;
     }
+    if (entry?.contextBudgetStatus !== undefined) {
+      next.contextBudgetStatus = entry.contextBudgetStatus;
+    }
     if (params.clearMissingUsage) {
       if (entry?.inputTokens === undefined) {
         next.inputTokens = null;
@@ -263,6 +267,9 @@ export function createSessionActions(context: SessionActionContext) {
       }
       if (entry?.totalTokens === undefined) {
         next.totalTokens = null;
+      }
+      if (entry?.contextBudgetStatus === undefined) {
+        next.contextBudgetStatus = null;
       }
     }
     if (hasEntryUpdate) {
@@ -591,6 +598,7 @@ export function createSessionActions(context: SessionActionContext) {
       inputTokens: null,
       outputTokens: null,
       totalTokens: null,
+      contextBudgetStatus: null,
       goal: undefined,
       updatedAt: null,
       displayName: undefined,

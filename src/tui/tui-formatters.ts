@@ -1,7 +1,7 @@
 // Formats terminal-safe strings for TUI messages and status surfaces.
 import { stripAnsi } from "../../packages/terminal-core/src/ansi.js";
 import { stripLeadingInboundMetadata } from "../auto-reply/reply/strip-inbound-meta.js";
-import type { SessionGoal } from "../config/sessions/types.js";
+import type { SessionContextBudgetStatus, SessionGoal } from "../config/sessions/types.js";
 import { isLoopbackHost } from "../gateway/net.js";
 import { formatRawAssistantErrorForUi } from "../shared/assistant-error-format.js";
 import { extractAssistantVisibleText } from "../shared/chat-message-content.js";
@@ -429,7 +429,42 @@ export function isCommandMessage(message: unknown): boolean {
   return (message as Record<string, unknown>).command === true;
 }
 
-export function formatTokens(total?: number | null, context?: number | null) {
+function formatEstimatedContextUsage(
+  context: number | null | undefined,
+  status: SessionContextBudgetStatus | null | undefined,
+): string | null {
+  if (!status || status.source !== "pre-prompt-estimate") {
+    return null;
+  }
+  const estimatedTotal = status.estimatedPromptTokens;
+  const estimatedContext =
+    typeof context === "number" && Number.isFinite(context) && context > 0
+      ? context
+      : status.contextTokenBudget;
+  if (
+    typeof estimatedTotal !== "number" ||
+    !Number.isFinite(estimatedTotal) ||
+    estimatedTotal < 0 ||
+    typeof estimatedContext !== "number" ||
+    !Number.isFinite(estimatedContext) ||
+    estimatedContext <= 0
+  ) {
+    return null;
+  }
+  const pct = Math.min(999, Math.round((estimatedTotal / estimatedContext) * 100));
+  return `tokens ~${formatTokenCount(estimatedTotal)}/${formatTokenCount(estimatedContext)} (${pct}% est)`;
+}
+
+export function formatTokens(
+  total?: number | null,
+  context?: number | null,
+  contextBudgetStatus?: SessionContextBudgetStatus | null,
+) {
+  const estimatedLabel =
+    total == null ? formatEstimatedContextUsage(context, contextBudgetStatus) : null;
+  if (estimatedLabel) {
+    return estimatedLabel;
+  }
   if (total == null && context == null) {
     return "tokens ?";
   }

@@ -248,6 +248,69 @@ describe("tui session actions", () => {
     expect(requestRender).not.toHaveBeenCalled();
   });
 
+  it("refreshes footer when estimated context budget status changes", async () => {
+    const contextBudgetStatus = {
+      schemaVersion: 1,
+      source: "pre-prompt-estimate",
+      updatedAt: 2,
+      provider: "openai",
+      model: "gpt-5",
+      route: "fits",
+      shouldCompact: false,
+      estimatedPromptTokens: 64_000,
+      contextTokenBudget: 200_000,
+      promptBudgetBeforeReserve: 180_000,
+      reserveTokens: 20_000,
+      effectiveReserveTokens: 20_000,
+      remainingPromptBudgetTokens: 116_000,
+      overflowTokens: 0,
+      toolResultReducibleChars: 0,
+      messageCount: 12,
+      unwindowedMessageCount: 10,
+    };
+    const listSessions = vi.fn().mockResolvedValue({
+      ts: Date.now(),
+      path: "/tmp/sessions.json",
+      count: 1,
+      defaults: {},
+      sessions: [
+        {
+          key: "agent:main:main",
+          model: "gpt-5",
+          modelProvider: "openai",
+          contextTokens: 200_000,
+          contextBudgetStatus,
+          updatedAt: 200,
+        },
+      ],
+    });
+    const state = createBaseState({
+      sessionInfo: {
+        model: "gpt-5",
+        modelProvider: "openai",
+        contextTokens: 200_000,
+        updatedAt: 100,
+      },
+    });
+    const updateFooter = vi.fn();
+    const updateAutocompleteProvider = vi.fn();
+    const requestRender = vi.fn();
+
+    const { refreshSessionInfo } = createTestSessionActions({
+      client: { listSessions } as unknown as TuiBackend,
+      state,
+      updateFooter,
+      updateAutocompleteProvider,
+      tui: { requestRender } as unknown as import("@earendil-works/pi-tui").TUI,
+    });
+
+    await refreshSessionInfo();
+
+    expect(state.sessionInfo.contextBudgetStatus).toBe(contextBudgetStatus);
+    expect(updateFooter).toHaveBeenCalledTimes(1);
+    expect(requestRender).toHaveBeenCalledTimes(1);
+  });
+
   it("keeps patched model selection when a refresh returns an older snapshot", async () => {
     const listSessions = vi.fn().mockResolvedValue({
       ts: Date.now(),

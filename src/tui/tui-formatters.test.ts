@@ -7,6 +7,7 @@ import {
   extractThinkingFromMessage,
   formatGoalFooter,
   formatRemoteConnectionHostFooter,
+  formatTokens,
   isCommandMessage,
   sanitizeRenderableText,
 } from "./tui-formatters.js";
@@ -60,6 +61,32 @@ describe("formatRemoteConnectionHostFooter", () => {
     expect(formatRemoteConnectionHostFooter("ws://127.0.0.1:18789")).toBeNull();
     expect(formatRemoteConnectionHostFooter("ws://127.1:18789")).toBeNull();
     expect(formatRemoteConnectionHostFooter("ws://[::1]:18789")).toBeNull();
+  });
+});
+
+describe("formatTokens", () => {
+  it("uses estimated context budget status when exact token usage is unavailable", () => {
+    expect(
+      formatTokens(null, null, {
+        schemaVersion: 1,
+        source: "pre-prompt-estimate",
+        updatedAt: 1,
+        provider: "openai",
+        model: "gpt-5",
+        route: "fits",
+        shouldCompact: false,
+        estimatedPromptTokens: 64_000,
+        contextTokenBudget: 200_000,
+        promptBudgetBeforeReserve: 180_000,
+        reserveTokens: 20_000,
+        effectiveReserveTokens: 20_000,
+        remainingPromptBudgetTokens: 116_000,
+        overflowTokens: 0,
+        toolResultReducibleChars: 0,
+        messageCount: 12,
+        unwindowedMessageCount: 10,
+      }),
+    ).toBe("tokens ~64k/200k (32% est)");
   });
 });
 
