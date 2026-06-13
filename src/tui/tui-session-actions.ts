@@ -198,6 +198,7 @@ export function createSessionActions(context: SessionActionContext) {
     defaults?: SessionInfoDefaults | null;
     force?: boolean;
     clearMissingUsage?: boolean;
+    clearMissingContextBudgetStatus?: boolean;
   }) => {
     const hasEntryUpdate = "entry" in params;
     const entry = params.entry ?? undefined;
@@ -268,9 +269,12 @@ export function createSessionActions(context: SessionActionContext) {
       if (entry?.totalTokens === undefined) {
         next.totalTokens = null;
       }
-      if (entry?.contextBudgetStatus === undefined) {
-        next.contextBudgetStatus = null;
-      }
+    }
+    if (
+      (params.clearMissingUsage || params.clearMissingContextBudgetStatus) &&
+      entry?.contextBudgetStatus === undefined
+    ) {
+      next.contextBudgetStatus = null;
     }
     if (hasEntryUpdate) {
       next.goal = entry?.goal;
@@ -338,6 +342,7 @@ export function createSessionActions(context: SessionActionContext) {
       applySessionInfo({
         entry,
         defaults: result.defaults,
+        clearMissingContextBudgetStatus: true,
       });
     } catch (err) {
       chatLog.addSystem(`sessions list failed: ${String(err)}`);
